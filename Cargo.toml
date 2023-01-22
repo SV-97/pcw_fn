@@ -1,6 +1,6 @@
 [package]
 name = "pcw_fn"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Generic piecewise function trait and impls."
 authors = ["Stefan Volz"]
