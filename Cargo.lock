@@ -40,9 +40,16 @@ dependencies = [
 
 [[package]]
 name = "pcw_fn"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "is_sorted",
  "itertools",
  "num-traits",
+ "serde",
 ]
+
+[[package]]
+name = "serde"
+version = "1.0.152"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb7d1f0d3021d347a83e556fc4683dea2ea09d87bccdf88ff5c12545d89d5efb"

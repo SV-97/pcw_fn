@@ -1,37 +1,4 @@
-//! Generic piecewise functions that allow for different internal buffers.
-//!
-//! # Examples
-//! ```
-//! use pcw_fn::{VecPcwFn, PcwFn};
-//!
-//! let pcw_poly: VecPcwFn<_, &dyn Fn(i32) -> i32> = VecPcwFn::try_from_iters(
-//!     vec![5, 10, 15],
-//!     vec![
-//!         &(|x| x-10) as &dyn Fn(i32) -> i32,
-//!         &(|x| 10) as &dyn Fn(i32) -> i32,
-//!         &(|x| x*x + 5) as &dyn Fn(i32) -> i32,
-//!         &(|x| x) as &dyn Fn(i32) -> i32,
-//!     ],
-//! )
-//! .unwrap();
-//! assert_eq!(pcw_poly.eval(0), -10);
-//! assert_eq!(pcw_poly.eval(12), 12*12 + 5);
-//! assert_eq!(pcw_poly.eval(500), 500);
-//!
-//! let pcw_const = VecPcwFn::try_from_iters(
-//!     vec![5, 10, 15],
-//!     vec!["hi", "how", "are", "you"],
-//! )
-//! .unwrap();
-//! assert_eq!(pcw_const.func_at(&0), &"hi");
-//!
-//! let f: VecPcwFn<_, String> = pcw_const.combine(VecPcwFn::global(2), |s, x| format!("{s} {x}"));
-//! assert_eq!(f.func_at(&15), &"you 2");
-//! ```
-//!
-//! TODO: Add SmallVec and StaticVec backed variants.
-//! TODO: Add normalization / removal of redundant jumps.
-//! TODO: remove `is_sorted` dependency once `is_sorted` is stabilized.
+//! Variant for Partially ordered domains that panics on incomparibility.
 
 // #![feature(generic_const_exprs)]
 use std::cmp::Ordering;
@@ -39,23 +6,11 @@ use std::iter;
 
 use itertools::{EitherOrBoth, Itertools};
 
-mod functional_hackery;
-pub mod partial;
-pub use crate::functional_hackery::{Functor, FunctorRef, Kind1To1};
+use crate::{
+    functional_hackery::{Functor, FunctorRef, Kind1To1},
+    PcwFnError,
+};
 use is_sorted::IsSorted;
-
-/// The different errors that can occur when constructing a piecewise function:
-/// * The jumps aren't strictly sorted (in particular there might be duplicates).
-/// * There's too many jumps; a piecewise function always has to have exactly one
-/// jump less than it has functions.
-/// * There's not enough jumps for the given number of functions.
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-pub enum PcwFnError {
-    JumpsNotStrictlySorted,
-    TooManyJumpsForFuncs,
-    TooFewJumpsForFuncs,
-}
 
 /// A piecewise function given by
 ///        ╭ f₁(x)   if      x < x₀
@@ -66,8 +21,8 @@ pub enum PcwFnError {
 /// for all x ∈ X where
 ///     f₁,...,fₙ : X -> Y, and
 ///     x₀ < x₁ < ... < xₙ
-/// from some strictly totally ordered set X (so X is `Ord`). Note that the fᵢ are not
-/// necessarily distinct.
+/// from some strictly partially ordered set X (so X is `PartialOrd`). Note that the fᵢ are not
+/// necessarily distinct. Panics if two x aren't comparable.
 ///
 /// We'll call the collection of all xᵢ the jump positions, or simply jumps of the piecewise
 /// function.
@@ -119,7 +74,7 @@ pub trait PcwFn<X: PartialOrd, F>: Functor<F> + Sized {
     /// Combine two piecewise functions using a pointwise action to obtain another piecewise function.
     fn combine<Rhs, G, Out, H>(self, rhs: Rhs, mut action: impl FnMut(F, G) -> H) -> Out
     where
-        X: Ord,
+        X: PartialOrd,
         F: Clone,
         G: Clone,
         Rhs: PcwFn<X, G>,
@@ -148,7 +103,7 @@ pub trait PcwFn<X: PartialOrd, F>: Functor<F> + Sized {
                 let mut l = fl.next().unwrap();
                 let mut r = fr.next().unwrap();
                 funcs.push(action(l.clone(), r.clone())); // value of result sufficiently far left in the domain
-                for c in jl.merge_join_by(jr.into_iter(), std::cmp::Ord::cmp) {
+                for c in jl.merge_join_by(jr.into_iter(), |x, y| x.partial_cmp(y).unwrap()) {
                     match c {
                         EitherOrBoth::Left(jump) => {
                             jumps.push(jump);
@@ -312,7 +267,7 @@ fn strictly_less<T: PartialOrd>(x: &T, y: &T) -> Option<Ordering> {
     }
 }
 
-impl<X: Ord, F> PcwFn<X, F> for VecPcwFn<X, F> {
+impl<X: PartialOrd, F> PcwFn<X, F> for VecPcwFn<X, F> {
     type JmpIter = <Vec<X> as IntoIterator>::IntoIter;
     type FncIter = <Vec<F> as IntoIterator>::IntoIter;
 
@@ -368,7 +323,7 @@ mod num_impls {
         ( $trait_to_impl:ident, $method_name:ident, $for_type:ident ) => {
             impl<Rhs, X, F> $trait_to_impl<Rhs> for $for_type<X, F>
             where
-                X: Ord,
+                X: PartialOrd,
                 Rhs: PcwFn<X, F>,
                 F: $trait_to_impl<F> + Clone,
             {
@@ -411,7 +366,7 @@ mod num_impls {
 
     impl<X, F> Zero for VecPcwFn<X, F>
     where
-        X: Ord,
+        X: PartialOrd,
         F: Zero + Clone,
     {
         fn zero() -> Self {
@@ -425,7 +380,7 @@ mod num_impls {
 
     impl<X, F> One for VecPcwFn<X, F>
     where
-        X: Ord,
+        X: PartialOrd,
         F: One + Clone + PartialEq,
     {
         fn one() -> Self {
@@ -444,7 +399,7 @@ mod num_impls {
         ( $trait_to_impl:ident, $method_name:ident, $for_type:ident ) => {
             impl<X, F> $trait_to_impl for $for_type<X, F>
             where
-                X: Ord,
+                X: PartialOrd,
                 F: $trait_to_impl,
             {
                 type Output = VecPcwFn<X, F::Output>;
