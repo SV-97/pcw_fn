@@ -1,6 +1,6 @@
 [package]
 name = "pcw_fn"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 description = "Generic piecewise function trait and impls."
 authors = ["Stefan Volz"]
@@ -14,7 +14,8 @@ readme = "README.md"
 is_sorted = "0.1.1"
 itertools = "0.10.5"
 num-traits = "0.2.15"
-serde = { version = "1.0.152", optional = true }
+serde = { version = "1.0.152", features = ["derive"], optional = true }
 
 [features]
 serde = ["dep:serde"] # enables serde support
+default = []

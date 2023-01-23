@@ -1,17 +1,16 @@
 //! Variant for Partially ordered domains that panics on incomparibility.
 
 // #![feature(generic_const_exprs)]
-use std::cmp::Ordering;
-use std::iter;
-
-use itertools::{EitherOrBoth, Itertools};
-
 use crate::{
     functional_hackery::{Functor, FunctorRef, Kind1To1},
     PcwFnError,
 };
 use is_sorted::IsSorted;
-
+use itertools::{EitherOrBoth, Itertools};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
+use std::iter;
 /// A piecewise function given by
 ///        ╭ f₁(x)   if      x < x₀
 ///        │ f₂(x)   if x₀ ≤ x < x₁

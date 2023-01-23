@@ -44,6 +44,9 @@ pub mod partial;
 pub use crate::functional_hackery::{Functor, FunctorRef, Kind1To1};
 use is_sorted::IsSorted;
 
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
+
 /// The different errors that can occur when constructing a piecewise function:
 /// * The jumps aren't strictly sorted (in particular there might be duplicates).
 /// * There's too many jumps; a piecewise function always has to have exactly one
